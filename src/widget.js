@@ -123,8 +123,10 @@ define(function(require, exports, module) {
         _parseElement: function() {
             var self = this;
 
+            var isTemplate = !self.el && self.get('template');
+
             // 未传入 el 时，从 template 构建
-            if (!self.el && self.get('template')) {
+            if (isTemplate) {
                 self._parseElementFromTemplate();
                 self.setElement(self.el, false);
             } else {
@@ -135,9 +137,19 @@ define(function(require, exports, module) {
             if (!self.$el || !self.$el[0]) {
                 throw new Error('element is invalid');
             }
+
+            if (isTemplate) {
+                var attrs = {};
+                if (self.id) attrs.id = self.id;
+                if (self.className) attrs['class'] = self.className;
+                self.$el.attr(attrs);
+            }
         },
 
-        // 让 element 与 Widget 实例建立关联
+        /**
+         * 让 element 与 Widget 实例建立关联
+         * @private
+         */
         _stamp: function() {
             var self = this;
             var cid = self.cid;
@@ -261,7 +273,7 @@ define(function(require, exports, module) {
 
         remove: function() {
             var self = this;
-            delete self.cachedInstances[self.cid];
+            delete cachedInstances[self.cid];
 
             Backbone.View.prototype.remove.apply(self);
 
@@ -273,9 +285,10 @@ define(function(require, exports, module) {
 
     // For memory leak
     $(window).unload(function() {
-        var cid;
+        var cid, instance;
         for (cid in cachedInstances) {
-            cachedInstances[cid].remove();
+            instance = cachedInstances[cid];
+            instance && instance.remove();
         }
     });
 
