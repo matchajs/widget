@@ -1,0 +1,9 @@
+~*
+*~
+*.iml
+*.ipr
+*.iws
+.idea/
+.svn/
+.DS_Store
+Thumbs.db
