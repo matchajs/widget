@@ -6,6 +6,10 @@ define(function(require, exports, module) {
     var cachedInstances = {};
 
     var defaultAttr = {
+        // 基本属性
+        id: null,
+        className: null,
+
         // 默认模板
         template: null,
 
@@ -18,7 +22,7 @@ define(function(require, exports, module) {
 
     var compiledTemplates = {};
 
-    var protectedProps = ['model', 'collection', 'el', 'id', 'attributes', 'className', 'tagName', 'events'];
+    var protectedProps = ['model', 'collection', 'el', 'attributes', 'events'];
 
     var Widget = Backbone.View.extend({
 
@@ -129,6 +133,9 @@ define(function(require, exports, module) {
             if (isTemplate) {
                 self._parseElementFromTemplate();
                 self.setElement(self.el, false);
+
+                // 是否由 template 初始化
+                self._isTemplate = true;
             } else {
                 Backbone.View.prototype._ensureElement.apply(self);
             }
@@ -136,13 +143,6 @@ define(function(require, exports, module) {
             // 如果对应的 DOM 元素不存在，则报错
             if (!self.$el || !self.$el[0]) {
                 throw new Error('element is invalid');
-            }
-
-            if (isTemplate) {
-                var attrs = {};
-                if (self.id) attrs.id = self.id;
-                if (self.className) attrs['class'] = self.className;
-                self.$el.attr(attrs);
             }
         },
 
@@ -155,6 +155,43 @@ define(function(require, exports, module) {
             var cid = self.cid;
 
             cachedInstances[cid] = self;
+        },
+
+        _bindAttrsChange: function() {
+            var self = this;
+
+            var attributes = self._attrsModel.attributes;
+            var attr;
+            for (attr in attributes) {
+                if (!attributes.hasOwnProperty(attr)) {
+                    continue;
+                }
+
+                var eventName = '_onChange' + ucfirst(attr);
+                if (self[eventName]) {
+                    var val = self.get(attr);
+
+                    // 让属性的初始值生效。注：默认空值不触发
+                    if (!isEmptyAttrValue(val)) {
+                        self[eventName](val, {});
+                    }
+
+                    // 将 _onRenderXx 自动绑定到 change:xx 事件上
+                    (function(eventName) {
+                        self.on('change:' + attr, function(model, value, options) {
+                            self[eventName](value, options);
+                        })
+                    })(eventName);
+                }
+            }
+        },
+
+        _onChangeId: function(value) {
+            this.$el.attr('id', value);
+        },
+
+        _onChangeClassName: function(value) {
+            this.$el.attr('class', value);
         },
 
         /**
@@ -179,11 +216,22 @@ define(function(require, exports, module) {
 
             // 筛选出其他属性，用作模型数据
             var attrs = $.extend(true, {}, defaultAttr, (self.attrs || {}), options);
-            attrs = filterSpecialProps(protectedProps, attrs);
+            var modelDefaults = filterSpecialProps(protectedProps, attrs);
 
             self._attrsModel = new (Backbone.Model.extend({
-                defaults: attrs
+                defaults: modelDefaults
             }));
+
+            // 兼容 backbone.view
+            var elementId = self.get('id');
+            if (elementId) {
+                self.id = elementId;
+            }
+
+            var elementClassName = self.get('className');
+            if (elementClassName) {
+                self.className = elementClassName;
+            }
 
             // 构建 element
             self._parseElement();
@@ -260,6 +308,7 @@ define(function(require, exports, module) {
             var self = this;
 
             if (!self.rendered) {
+                self._bindAttrsChange();
                 self.rendered = true;
             }
 
@@ -271,6 +320,10 @@ define(function(require, exports, module) {
             return self;
         },
 
+        /**
+         * 移除
+         * @returns {Widget}
+         */
         remove: function() {
             var self = this;
             delete cachedInstances[self.cid];
@@ -322,5 +375,14 @@ define(function(require, exports, module) {
         }
 
         return supplier;
+    }
+
+    function ucfirst(str) {
+        return str.charAt(0).toUpperCase() + str.substring(1);
+    }
+
+    // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
+    function isEmptyAttrValue(o) {
+        return o == null || o === undefined;
     }
 });
