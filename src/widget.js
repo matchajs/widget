@@ -214,8 +214,11 @@ define(function(require, exports, module) {
 
             var self = this;
 
+            // attrs 处理
+            var inheritedAttrs = mergeInheritedAttrs(self);
+            var attrs = $.extend(true, {}, defaultAttr, inheritedAttrs, (self.attrs || {}), options);
+            //var attrs = $.extend(true, {}, defaultAttr, (self.attrs || {}), options);
             // 筛选出其他属性，用作模型数据
-            var attrs = $.extend(true, {}, defaultAttr, (self.attrs || {}), options);
             var modelDefaults = filterSpecialProps(protectedProps, attrs);
 
             self._attrsModel = new (Backbone.Model.extend({
@@ -377,6 +380,27 @@ define(function(require, exports, module) {
         return supplier;
     }
 
+    function mergeInheritedAttrs(instance) {
+        var proto = instance.constructor.prototype;
+
+        var inherited = [];
+        while (proto) {
+            // 不要拿到 prototype 上的 && 为空时不添加
+            if (proto.hasOwnProperty('attrs') && !isEmptyObject(proto.attrs)) {
+                inherited.unshift(proto.attrs);
+            }
+
+            // 向上回溯一级
+            proto = proto.constructor.__super__;
+
+        }
+
+        inherited.unshift({});
+        inherited.unshift(true);
+
+        return $.extend.apply($, inherited);
+    }
+
     function ucfirst(str) {
         return str.charAt(0).toUpperCase() + str.substring(1);
     }
@@ -384,5 +408,22 @@ define(function(require, exports, module) {
     // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
     function isEmptyAttrValue(o) {
         return o == null || o === undefined;
+    }
+
+    var toString = Object.prototype.toString;
+    function isEmptyObject(o) {
+        if (!o || toString.call(o) !== "[object Object]" ||
+            o.nodeType || isWindow(o) || !o.hasOwnProperty) {
+            return false;
+        }
+
+        for (var p in o) {
+            if (o.hasOwnProperty(p)) return false;
+        }
+        return true;
+    }
+
+    function isWindow(o) {
+        return o != null && o == o.window;
     }
 });
