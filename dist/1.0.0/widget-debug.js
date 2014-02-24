@@ -1,8 +1,15 @@
-define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1.1.1/backbone-debug", "utility/handlebars/1.3.0/handlebars-debug" ], function(require, exports, module) {
+define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/underscore/1.6.0/underscore-debug", "utility/backbone/1.1.2/backbone-debug", "utility/handlebars/1.3.0/handlebars-debug" ], function(require, exports, module) {
     var $ = require("jquery-debug");
-    var Backbone = require("utility/backbone/1.1.1/backbone-debug");
+    require("utility/underscore/1.6.0/underscore-debug");
+    // 让combo一并加载
+    var Backbone = require("utility/backbone/1.1.2/backbone-debug");
     var Handlebars = require("utility/handlebars/1.3.0/handlebars-debug");
+    // 实例缓存
     var cachedInstances = {};
+    /**
+     * 默认属性
+     * @type {{id: null, className: null, template: null, templateModel: null, parentNode: HTMLElement}}
+     */
     var defaultAttr = {
         // 基本属性
         id: null,
@@ -14,12 +21,23 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
         // 组件的默认父节点
         parentNode: document.body
     };
+    // 编译过的模版缓存
     var compiledTemplates = {};
+    // 受保护的props，确保它们不会出现attrs模型上
+    // 这些值会被Backbone.View初始化时复制到实例上
     var protectedProps = [ "model", "collection", "el", "attributes", "events" ];
     var Widget = Backbone.View.extend({
+        /**
+         * 渲染Handlebars模版
+         * @param template
+         * @param templateModel
+         * @returns {*}
+         * @private
+         */
         _renderElement: function(template, templateModel) {
             var self = this;
             template || (template = self.get("template"));
+            // 模版套入的数据
             templateModel || (templateModel = self.get("templateModel")) || (templateModel = {});
             if (templateModel.toJSON) {
                 templateModel = templateModel.toJSON();
@@ -91,7 +109,7 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
             self.el = self._renderElement(template);
         },
         /**
-         * 覆盖方法
+         * 覆盖方法(Backbone.View._ensureElement)
          * @private
          */
         _ensureElement: function() {},
@@ -125,6 +143,10 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
             var cid = self.cid;
             cachedInstances[cid] = self;
         },
+        /**
+         * 属性创建和改变时，触发创建的函数
+         * @private
+         */
         _bindAttrsChange: function() {
             var self = this;
             var attributes = self._attrsModel.attributes;
@@ -138,7 +160,9 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
                     var val = self.get(attr);
                     // 让属性的初始值生效。注：默认空值不触发
                     if (!isEmptyAttrValue(val)) {
-                        self[eventName](val, {});
+                        self[eventName](val, {
+                            create: true
+                        });
                     }
                     // 将 _onRenderXx 自动绑定到 change:xx 事件上
                     (function(eventName) {
@@ -149,11 +173,12 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
                 }
             }
         },
+        // 模型属性对应的回调函数
         _onChangeId: function(value) {
             this.$el.attr("id", value);
         },
         _onChangeClassName: function(value) {
-            this.$el.attr("class", value);
+            this.$el.addClass(value);
         },
         /**
          * Handlebars 的 helpers
@@ -171,8 +196,10 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
         initialize: function(options) {
             options || (options = {});
             var self = this;
+            // attrs 处理
+            var inheritedAttrs = mergeInheritedAttrs(self);
+            var attrs = $.extend(true, {}, defaultAttr, inheritedAttrs, self.attrs || {}, options);
             // 筛选出其他属性，用作模型数据
-            var attrs = $.extend(true, {}, defaultAttr, self.attrs || {}, options);
             var modelDefaults = filterSpecialProps(protectedProps, attrs);
             self._attrsModel = new (Backbone.Model.extend({
                 defaults: modelDefaults
@@ -196,7 +223,7 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
         },
         /**
          * 模型: 获取属性
-         * @returns {*|String|string|Object}
+         * @returns {*}
          */
         get: function() {
             var self = this;
@@ -282,8 +309,28 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
     function isFunction(o) {
         return $.isFunction(o);
     }
+    function isWindow(o) {
+        return o != null && o == o.window;
+    }
     function isInDocument(element) {
         return $.contains(document.documentElement, element);
+    }
+    function ucfirst(str) {
+        return str.charAt(0).toUpperCase() + str.substring(1);
+    }
+    // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
+    function isEmptyAttrValue(o) {
+        return o == null || o === undefined;
+    }
+    var toString = Object.prototype.toString;
+    function isEmptyObject(o) {
+        if (!o || toString.call(o) !== "[object Object]" || o.nodeType || isWindow(o) || !o.hasOwnProperty) {
+            return false;
+        }
+        for (var p in o) {
+            if (o.hasOwnProperty(p)) return false;
+        }
+        return true;
     }
     function compilePartial(partials) {
         if (!partials) return {};
@@ -303,11 +350,19 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/backbone/1
         }
         return supplier;
     }
-    function ucfirst(str) {
-        return str.charAt(0).toUpperCase() + str.substring(1);
-    }
-    // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
-    function isEmptyAttrValue(o) {
-        return o == null || o === undefined;
+    function mergeInheritedAttrs(instance) {
+        var proto = instance.constructor.prototype;
+        var inherited = [];
+        while (proto) {
+            // 不要拿到 prototype 上的 && 为空时不添加
+            if (proto.hasOwnProperty("attrs") && !isEmptyObject(proto.attrs)) {
+                inherited.unshift(proto.attrs);
+            }
+            // 向上回溯一级
+            proto = proto.constructor.__super__;
+        }
+        inherited.unshift({});
+        inherited.unshift(true);
+        return $.extend.apply($, inherited);
     }
 });

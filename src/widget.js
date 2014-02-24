@@ -1,10 +1,16 @@
 define(function(require, exports, module) {
     var $ = require('jquery');
+    require('underscore'); // 让combo一并加载
     var Backbone = require('backbone');
     var Handlebars = require('handlebars');
 
+    // 实例缓存
     var cachedInstances = {};
 
+    /**
+     * 默认属性
+     * @type {{id: null, className: null, template: null, templateModel: null, parentNode: HTMLElement}}
+     */
     var defaultAttr = {
         // 基本属性
         id: null,
@@ -20,17 +26,28 @@ define(function(require, exports, module) {
         parentNode: document.body
     };
 
+    // 编译过的模版缓存
     var compiledTemplates = {};
 
+    // 受保护的props，确保它们不会出现attrs模型上
+    // 这些值会被Backbone.View初始化时复制到实例上
     var protectedProps = ['model', 'collection', 'el', 'attributes', 'events'];
 
     var Widget = Backbone.View.extend({
 
+        /**
+         * 渲染Handlebars模版
+         * @param template
+         * @param templateModel
+         * @returns {*}
+         * @private
+         */
         _renderElement: function(template, templateModel) {
             var self = this;
 
             template || (template = self.get('template'));
 
+            // 模版套入的数据
             templateModel || (templateModel = self.get('templateModel')) || (templateModel = {});
             if (templateModel.toJSON) {
                 templateModel = templateModel.toJSON();
@@ -115,7 +132,7 @@ define(function(require, exports, module) {
         },
 
         /**
-         * 覆盖方法
+         * 覆盖方法(Backbone.View._ensureElement)
          * @private
          */
         _ensureElement: function() {},
@@ -157,6 +174,10 @@ define(function(require, exports, module) {
             cachedInstances[cid] = self;
         },
 
+        /**
+         * 属性创建和改变时，触发创建的函数
+         * @private
+         */
         _bindAttrsChange: function() {
             var self = this;
 
@@ -173,7 +194,7 @@ define(function(require, exports, module) {
 
                     // 让属性的初始值生效。注：默认空值不触发
                     if (!isEmptyAttrValue(val)) {
-                        self[eventName](val, {});
+                        self[eventName](val, {create: true});
                     }
 
                     // 将 _onRenderXx 自动绑定到 change:xx 事件上
@@ -186,12 +207,13 @@ define(function(require, exports, module) {
             }
         },
 
+        // 模型属性对应的回调函数
         _onChangeId: function(value) {
             this.$el.attr('id', value);
         },
 
         _onChangeClassName: function(value) {
-            this.$el.attr('class', value);
+            this.$el.addClass(value);
         },
 
         /**
@@ -217,7 +239,6 @@ define(function(require, exports, module) {
             // attrs 处理
             var inheritedAttrs = mergeInheritedAttrs(self);
             var attrs = $.extend(true, {}, defaultAttr, inheritedAttrs, (self.attrs || {}), options);
-            //var attrs = $.extend(true, {}, defaultAttr, (self.attrs || {}), options);
             // 筛选出其他属性，用作模型数据
             var modelDefaults = filterSpecialProps(protectedProps, attrs);
 
@@ -250,7 +271,7 @@ define(function(require, exports, module) {
 
         /**
          * 模型: 获取属性
-         * @returns {*|String|string|Object}
+         * @returns {*}
          */
         get: function() {
             var self = this;
@@ -353,8 +374,34 @@ define(function(require, exports, module) {
         return $.isFunction(o);
     }
 
+    function isWindow(o) {
+        return o != null && o == o.window;
+    }
+
     function isInDocument(element) {
         return $.contains(document.documentElement, element);
+    }
+
+    function ucfirst(str) {
+        return str.charAt(0).toUpperCase() + str.substring(1);
+    }
+
+    // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
+    function isEmptyAttrValue(o) {
+        return o == null || o === undefined;
+    }
+
+    var toString = Object.prototype.toString;
+    function isEmptyObject(o) {
+        if (!o || toString.call(o) !== "[object Object]" ||
+            o.nodeType || isWindow(o) || !o.hasOwnProperty) {
+            return false;
+        }
+
+        for (var p in o) {
+            if (o.hasOwnProperty(p)) return false;
+        }
+        return true;
     }
 
     function compilePartial(partials) {
@@ -399,31 +446,5 @@ define(function(require, exports, module) {
         inherited.unshift(true);
 
         return $.extend.apply($, inherited);
-    }
-
-    function ucfirst(str) {
-        return str.charAt(0).toUpperCase() + str.substring(1);
-    }
-
-    // 对于 attrs 的 value 来说，以下值都认为是空值： null, undefined
-    function isEmptyAttrValue(o) {
-        return o == null || o === undefined;
-    }
-
-    var toString = Object.prototype.toString;
-    function isEmptyObject(o) {
-        if (!o || toString.call(o) !== "[object Object]" ||
-            o.nodeType || isWindow(o) || !o.hasOwnProperty) {
-            return false;
-        }
-
-        for (var p in o) {
-            if (o.hasOwnProperty(p)) return false;
-        }
-        return true;
-    }
-
-    function isWindow(o) {
-        return o != null && o == o.window;
     }
 });
