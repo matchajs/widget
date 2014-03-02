@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="gbk">
+<title>Widget examples - 基础操作</title>
+<link rel="stylesheet" href="http://www.poco.cn/css_common/normalize/2.1.3/normalize.css">
+<script src="http://cb.poco.cn/seajs/2.1.1/sea.js"></script>
+<!--[if lt IE 9]>
+<script src="http://cb.poco.cn/utility/html5shiv/3.7.0/html5shiv.js"></script>
+<![endif]-->
+<script>
+seajs.config({
+    paths: {
+        utility: 'http://cb.poco.cn/utility',
+        matcha: 'http://cb.poco.cn/matcha'
+    },
+    alias:{
+        jquery: 'utility/jquery/1.8.3/jquery',
+        'jquery-debug': 'utility/jquery/1.8.3/jquery-debug',
+
+        handlebars: 'utility/handlebars/1.3.0/handlebars',
+        underscore: 'utility/underscore/1.6.0/underscore',
+        backbone: 'utility/backbone/1.1.2/backbone-debug'
+    },
+    charset: 'utf-8'
+});
+</script>
+</head>
+
+<body>
+    <div class="global-container">
+        <section class="example-content">
+            <h3 id="微调器">微调器</h3>
+            <div class="example">
+                <style type="text/css">
+                .spinner-value {
+                    width: 28px;
+                    height: 28px;
+                    line-height: 28px;
+                    text-align: center;
+                    vertical-align: middle;
+                }
+                .increment-button, .decrement-button {
+                    height: 34px;
+                    line-height: 34px;
+                    font-family: arial;
+                    font-size: 20px;
+                    font-weight: 700;
+                    vertical-align: middle;
+                }
+                </style>
+                <div class="spinner-content">
+                    <button type="button" class="decrement-button" role="decrement">-</button>
+                    <input type="text" class="spinner-value" value="5">
+                    <button type="button" class="increment-button" role="increment">+</button>
+                </div>
+
+                <p class="hint">click or mousedown 上下箭头按钮 可以进行 +/-1，Page Up/Down可进行 +/-10</p>
+
+                <script>
+                seajs.use(['jquery', '../src/widget'], function($, Widget) {
+                    var Spinner = Widget.extend({
+                        el: 'div.spinner-content',
+
+                        events: {
+                            'keydown .spinner-value': '_onDirectionKey',
+                            'mousedown button': '_onMouseDown',
+                            'mouseup button': '_clearMouseDownTimers'
+                        },
+
+                        attrs: {
+                            min: 0,
+                            max: 100,
+                            value: 5,
+
+                            minorStep: 1,
+                            majorStep: 10
+                        },
+
+                        _validateValue: function(val) {
+                            var self = this;
+                            return (typeof val === 'number' && val >= self.get('min') && val <= self.get('max'));
+                        },
+
+                        _setNewVal: function(newVal) {
+                            var self = this;
+                            self._validateValue(newVal) && self.set('value', newVal);
+                        },
+
+                        _clearMouseDownTimers: function() {
+                            var self = this;
+                            if (self._mouseDownTimer) {
+                                clearTimeout(self._mouseDownTimer);
+                                self._mouseDownTimer = null;
+                            }
+                            if (self._mousePressTimer) {
+                                clearInterval(self._mousePressTimer);
+                                self._mousePressTimer = null;
+                            }
+                        },
+
+                        _setMouseDownTimers: function(dir, step) {
+                            var self = this;
+
+                            self._mouseDownTimer = setTimeout(function() {
+                                self._mousePressTimer = setInterval(function() {
+                                    self._setNewVal(self.get('value') + (dir * step));
+                                }, 100);
+                            }, 500);
+                        },
+
+                        _onMouseDown: function(e) {
+                            var self = this;
+
+                            var $target = $(e.currentTarget);
+                            var roleVal = $target.attr('role');
+
+                            var handled = false;
+                            var dir;
+
+                            var minorStep = self.get('minorStep');
+
+                            var currVal = self.get('value');
+                            var newVal = currVal;
+
+                            if (roleVal == 'increment') {
+                                newVal = currVal + minorStep;
+                                dir = 1;
+                                handled = true;
+                            } else if (roleVal == 'decrement') {
+                                newVal = currVal - minorStep;
+                                dir = -1;
+                                handled = true;
+                            }
+
+                            self._setNewVal(newVal);
+
+                            if (handled) {
+                                self._setMouseDownTimers(dir, minorStep);
+                            }
+                        },
+
+                        _onDirectionKey: function(e) {
+                            e.preventDefault();
+
+                            var self = this;
+
+                            var currVal = self.get('value');
+                            var newVal = currVal;
+
+                            var minorStep = self.get('minorStep');
+                            var majorStep = self.get('majorStep');
+
+                            switch (e.keyCode) {
+                                case 38:
+                                    newVal += minorStep;
+                                    break;
+                                case 40:
+                                    newVal -= minorStep;
+                                    break;
+                                case 33:
+                                    newVal += majorStep;
+                                    newVal = Math.min(newVal, self.get('max'));
+                                    break;
+                                case 34:
+                                    newVal -= majorStep;
+                                    newVal = Math.max(newVal, self.get('min'));
+                                    break;
+                            }
+
+                            if (newVal !== currVal) {
+                                self._setNewVal(newVal);
+                            }
+                        },
+
+                        _onChangeValue: function(val, prev) {
+                            this.$el.find('input.spinner-value').val(val);
+                        },
+
+                        setup: function() {
+                            var self = this;
+
+                            $(document).on('mouseup', function() {
+                                self._clearMouseDownTimers();
+                            });
+                        }
+                    });
+
+                    new Spinner().render();
+                });
+                </script>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

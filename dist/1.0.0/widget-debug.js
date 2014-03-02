@@ -160,14 +160,14 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/underscore
                     var val = self.get(attr);
                     // 让属性的初始值生效。注：默认空值不触发
                     if (!isEmptyAttrValue(val)) {
-                        self[eventName](val, {
+                        self[eventName](val, undefined, {
                             create: true
                         });
                     }
                     // 将 _onRenderXx 自动绑定到 change:xx 事件上
                     (function(eventName) {
                         self.on("change:" + attr, function(model, value, options) {
-                            self[eventName](value, options);
+                            self[eventName](value, model.previous(attr), options);
                         });
                     })(eventName);
                 }
@@ -293,6 +293,21 @@ define("matcha/widget/1.0.0/widget-debug", [ "jquery-debug", "utility/underscore
             var self = this;
             delete cachedInstances[self.cid];
             Backbone.View.prototype.remove.apply(self);
+            return self;
+        },
+        /**
+         * 销毁实例
+         * @returns {Widget}
+         */
+        destroy: function() {
+            var self = this;
+            for (var p in self) {
+                if (self.hasOwnProperty(p)) {
+                    delete self[p];
+                }
+            }
+            // 此方法只能运行一次
+            self.destroy = function() {};
             return self;
         }
     });

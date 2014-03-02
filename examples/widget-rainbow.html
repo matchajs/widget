@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="gbk">
+<title>Widget examples - 7色板</title>
+<link rel="stylesheet" href="http://www.poco.cn/css_common/normalize/2.1.3/normalize.css">
+<script src="http://cb.poco.cn/seajs/2.1.1/sea.js"></script>
+<!--[if lt IE 9]>
+<script src="http://cb.poco.cn/utility/html5shiv/3.7.0/html5shiv.js"></script>
+<![endif]-->
+<script>
+seajs.config({
+    paths: {
+        utility: 'http://cb.poco.cn/utility',
+        matcha: 'http://cb.poco.cn/matcha'
+    },
+    alias:{
+        jquery: 'utility/jquery/1.8.3/jquery',
+        'jquery-debug': 'utility/jquery/1.8.3/jquery-debug',
+
+        handlebars: 'utility/handlebars/1.3.0/handlebars',
+        underscore: 'utility/underscore/1.6.0/underscore',
+        backbone: 'utility/backbone/1.1.2/backbone-debug'
+    },
+    charset: 'utf-8'
+});
+</script>
+</head>
+
+<body>
+    <div class="global-container">
+        <section class="example-content">
+            <h3 id="彩虹色">彩虹色</h3>
+            <div id="rainbow-example" class="example">
+                <style type="text/css">
+                .sketchpad {
+                    width: 28px;
+                    height: 28px;
+                    line-height: 28px;
+                    text-align: center;
+                    vertical-align: middle;
+                }
+                .color-group li {
+                    display: inline;
+                    float: left;
+                }
+                .color-group a {
+                    display: block;
+                    width: 50px;
+                    height: 100px;
+                    line-height: 100px;
+                    color: #000;
+                    text-align: center;
+                    text-decoration: none;
+                }
+                .color-group .red {background: #ff0000}
+                .color-group .orange {background: #FFA500}
+                .color-group .yellow {background: #FFFF00}
+                .color-group .green {background: #008000}
+                .color-group .blue {background: #0000FF}
+                .color-group .indigo {background: #4B0082}
+                .color-group .violet {background: #800880}
+                </style>
+                <ul class="color-group">
+                    <li><a href="javascript:;" class="red" data-color="#FF0000">红</a></li>
+                    <li><a href="javascript:;" class="orange" data-color="#FFA500">橙</a></li>
+                    <li><a href="javascript:;" class="yellow" data-color="#FFFF00">黄</a></li>
+                    <li><a href="javascript:;" class="green" data-color="#008000">绿</a></li>
+                    <li><a href="javascript:;" class="blue" data-color="#0000FF">蓝</a></li>
+                    <li><a href="javascript:;" class="indigo" data-color="#4B0082">靛</a></li>
+                    <li><a href="javascript:;" class="violet" data-color="#800880">紫</a></li>
+                </ul>
+
+                <script>
+                seajs.use(['jquery', '../src/widget'], function($, Widget) {
+                    var Rainbow = Widget.extend({
+                        el: '#rainbow-example',
+
+                        events: {
+                            'mouseenter a': '_onMouseEnter',
+                            'mouseleave': '_onMouseLeave'
+                        },
+
+                        _onMouseEnter: function(e) {
+                            var self = this;
+
+                            var val = $(e.currentTarget).attr('data-color');
+                            $(document.body).css('background', val);
+                        },
+
+                        _onMouseLeave: function() {
+                            var self = this;
+
+                            $(document.body).css('background', '#fff');
+                        },
+
+                        setup: function() {
+                            $(document.body).css('background', '#fff');
+                        }
+                    });
+
+                    new Rainbow().render();
+                });
+                </script>
+            </div>
+        </section>
+    </div>
+</body>
+</html>
